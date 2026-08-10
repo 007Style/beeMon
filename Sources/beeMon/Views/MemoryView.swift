@@ -222,56 +222,53 @@ struct MemoryMetricRow: View {
     }
 }
 
-// MARK: - Tooltip Label (click ⓘ to expand/collapse)
+// MARK: - Tooltip Label (click ⓘ → floating popover, no layout shift)
 
 struct TooltipLabel: View {
     let label: String
     let tooltip: String
     let color: Color
 
-    @State private var expanded = false
+    @State private var showPopover = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Label row with clickable ⓘ
-            HStack(spacing: 4) {
-                Circle().fill(color).frame(width: 5, height: 5)
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(DS.textSecondary)
-                Button {
-                    withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
-                } label: {
-                    Image(systemName: expanded ? "info.circle.fill" : "info.circle")
-                        .font(.system(size: 9))
-                        .foregroundStyle(expanded ? color : DS.textMuted)
-                }
-                .buttonStyle(.plain)
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 5, height: 5)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(DS.textSecondary)
+            Button {
+                showPopover.toggle()
+            } label: {
+                Image(systemName: showPopover ? "info.circle.fill" : "info.circle")
+                    .font(.system(size: 9))
+                    .foregroundStyle(showPopover ? color : DS.textMuted)
             }
-            .frame(width: 110, alignment: .leading)
-
-            // Inline expandable description
-            if expanded {
-                Text(tooltip)
-                    .font(.system(size: 10))
-                    .foregroundStyle(DS.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .lineSpacing(2)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 7)
-                    .frame(maxWidth: 260, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(Color(red: 0.10, green: 0.10, blue: 0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .stroke(color.opacity(0.35), lineWidth: 0.5)
-                            )
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 5)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+            .buttonStyle(.plain)
+            .popover(isPresented: $showPopover, arrowEdge: .trailing) {
+                TooltipPopoverContent(text: tooltip, color: color)
             }
         }
+        .frame(width: 110, alignment: .leading)
+    }
+}
+
+// MARK: - Popover content view
+
+private struct TooltipPopoverContent: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12))
+            .foregroundStyle(Color.white)
+            .multilineTextAlignment(.leading)
+            .lineSpacing(3)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .frame(maxWidth: 280, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(Color(red: 0.10, green: 0.10, blue: 0.15))
     }
 }

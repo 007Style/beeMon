@@ -19,12 +19,16 @@ struct NetworkView: View {
         return names.sorted()
     }
 
-    /// Interfaces with traffic in the current sample (rate > 0).
+    /// Interfaces with any traffic in the last 2 minutes (120 samples).
     private var activeInterfaces: [String] {
-        allInterfaces.filter { name in
-            monitor.netHistory.last?.interfaces[name].map {
-                $0.rateIn > 0 || $0.rateOut > 0
-            } ?? false
+        let window = Array(monitor.netHistory.suffix(120))
+        return allInterfaces.filter { name in
+            window.contains { sample in
+                if let s = sample.interfaces[name] {
+                    return s.rateIn > 0 || s.rateOut > 0
+                }
+                return false
+            }
         }
     }
 
