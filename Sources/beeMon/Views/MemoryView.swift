@@ -48,6 +48,8 @@ struct MemoryView: View {
     @ObservedObject var monitor: SystemMonitor
     @ObservedObject var processMonitor: ProcessMonitor = .shared
     var showWindowPicker: Bool = false
+    /// When true (Overview tab), hides the process table so the card stays compact.
+    var isOverview: Bool = false
     @State private var timeWindow: TimeWindow = .twoMin
 
     private var windowedHistory: [MemorySample] {
@@ -154,11 +156,13 @@ struct MemoryView: View {
                     }
                 }
 
-                // ── Top Processes ─────────────────────────────────
-                Divider().background(DS.border)
+                // ── Top Processes — only shown in full Memory tab ─
+                if !isOverview {
+                    Divider().background(DS.border)
 
-                ProcessTableView(processes: processMonitor.topProcesses,
-                                 totalMemBytes: latestMem?.totalBytes ?? 0)
+                    ProcessTableView(processes: processMonitor.topProcesses,
+                                     totalMemBytes: latestMem?.totalBytes ?? 0)
+                }
             }
         }
     }

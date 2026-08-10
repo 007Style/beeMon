@@ -78,6 +78,8 @@ func detectCoreClasses(coreCount: Int) -> [CoreClass] {
 struct CPUView: View {
     @ObservedObject var monitor: SystemMonitor
     var showWindowPicker: Bool = false
+    /// When true (Overview tab), hides the per-core grid so the card stays compact.
+    var isOverview: Bool = false
     @State private var zoomedCore: Int? = nil
     @State private var timeWindow: TimeWindow = .twoMin
 
@@ -152,27 +154,29 @@ struct CPUView: View {
                     .frame(height: 56)
                 }
 
-                Divider().background(DS.border)
+                if !isOverview {
+                    Divider().background(DS.border)
 
-                // Per-core grid — 4 cols max so cells are large and readable
-                let cols = min(monitor.coreCount, 4)
-                let rows = (monitor.coreCount + cols - 1) / cols
+                    // Per-core grid — 4 cols max so cells are large and readable
+                    let cols = min(monitor.coreCount, 4)
+                    let rows = (monitor.coreCount + cols - 1) / cols
 
-                VStack(spacing: 8) {
-                    ForEach(0..<rows, id: \.self) { row in
-                        HStack(spacing: 8) {
-                            ForEach(0..<cols, id: \.self) { col in
-                                let coreIdx = row * cols + col
-                                if coreIdx < monitor.coreCount {
-                                    CoreCell(
-                                        index: coreIdx,
-                                        coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
-                                        history: windowedHistory,
-                                        color: coreColors[coreIdx],
-                                        onTap: { zoomedCore = coreIdx }
-                                    )
-                                } else {
-                                    Color.clear.frame(maxWidth: .infinity)
+                    VStack(spacing: 8) {
+                        ForEach(0..<rows, id: \.self) { row in
+                            HStack(spacing: 8) {
+                                ForEach(0..<cols, id: \.self) { col in
+                                    let coreIdx = row * cols + col
+                                    if coreIdx < monitor.coreCount {
+                                        CoreCell(
+                                            index: coreIdx,
+                                            coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
+                                            history: windowedHistory,
+                                            color: coreColors[coreIdx],
+                                            onTap: { zoomedCore = coreIdx }
+                                        )
+                                    } else {
+                                        Color.clear.frame(maxWidth: .infinity)
+                                    }
                                 }
                             }
                         }

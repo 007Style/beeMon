@@ -207,9 +207,9 @@ struct DashboardView: View {
             VStack(spacing: DS.spacing) {
                 // Top row: CPU + Memory side by side — takes natural height
                 HStack(alignment: .top, spacing: DS.spacing) {
-                    CPUView(monitor: monitor)
+                    CPUView(monitor: monitor, isOverview: true)
                         .frame(maxWidth: .infinity)
-                    MemoryView(monitor: monitor)
+                    MemoryView(monitor: monitor, isOverview: true)
                         .frame(maxWidth: .infinity)
                 }
                 .fixedSize(horizontal: false, vertical: true)
