@@ -1,0 +1,11 @@
+{
+    "CFBundleName": "beeMon",
+    "CFBundleDisplayName": "beeMon",
+    "CFBundleIdentifier": "com.beemon.app",
+    "CFBundleVersion": "1.0.0",
+    "CFBundleShortVersionString": "1.0",
+    "CFBundlePackageType": "APPL",
+    "LSUIElement": true,
+    "NSHighResolutionCapable": true,
+    "LSMinimumSystemVersion": "13.0"
+}
