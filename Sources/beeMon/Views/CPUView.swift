@@ -154,29 +154,29 @@ struct CPUView: View {
                     .frame(height: 56)
                 }
 
-                if !isOverview {
-                    Divider().background(DS.border)
+                Divider().background(DS.border)
 
-                    // Per-core grid — 4 cols max so cells are large and readable
-                    let cols = min(monitor.coreCount, 4)
-                    let rows = (monitor.coreCount + cols - 1) / cols
+                // Per-core grid — 4 cols max.
+                // In overview mode cells are compact (shorter sparkline) so they fit.
+                let cols = min(monitor.coreCount, 4)
+                let rows = (monitor.coreCount + cols - 1) / cols
 
-                    VStack(spacing: 8) {
-                        ForEach(0..<rows, id: \.self) { row in
-                            HStack(spacing: 8) {
-                                ForEach(0..<cols, id: \.self) { col in
-                                    let coreIdx = row * cols + col
-                                    if coreIdx < monitor.coreCount {
-                                        CoreCell(
-                                            index: coreIdx,
-                                            coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
-                                            history: windowedHistory,
-                                            color: coreColors[coreIdx],
-                                            onTap: { zoomedCore = coreIdx }
-                                        )
-                                    } else {
-                                        Color.clear.frame(maxWidth: .infinity)
-                                    }
+                VStack(spacing: isOverview ? 4 : 8) {
+                    ForEach(0..<rows, id: \.self) { row in
+                        HStack(spacing: isOverview ? 4 : 8) {
+                            ForEach(0..<cols, id: \.self) { col in
+                                let coreIdx = row * cols + col
+                                if coreIdx < monitor.coreCount {
+                                    CoreCell(
+                                        index: coreIdx,
+                                        coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
+                                        history: windowedHistory,
+                                        color: coreColors[coreIdx],
+                                        onTap: { zoomedCore = coreIdx },
+                                        compact: isOverview
+                                    )
+                                } else {
+                                    Color.clear.frame(maxWidth: .infinity)
                                 }
                             }
                         }
@@ -225,6 +225,8 @@ struct CoreCell: View {
     let history: [CPUSample]
     let color: Color
     let onTap: () -> Void
+    /// When true, uses a shorter sparkline height so cells fit in the overview card.
+    var compact: Bool = false
 
     @State private var isHovered = false
 
@@ -255,7 +257,7 @@ struct CoreCell: View {
                     .contentTransition(.numericText())
             }
 
-            // Bigger sparkline
+            // Sparkline — shorter in compact/overview mode
             SparklineChart(
                 values: values,
                 maxValue: 100,
@@ -263,7 +265,7 @@ struct CoreCell: View {
                 showGradient: true,
                 lineWidth: 1.5
             )
-            .frame(height: 60)
+            .frame(height: compact ? 30 : 60)
 
             // Usage bar — thicker
             GeometryReader { geo in
