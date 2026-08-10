@@ -156,27 +156,50 @@ struct CPUView: View {
 
                 Divider().background(DS.border)
 
-                // Per-core grid — 4 cols max.
-                // In overview mode cells are compact (shorter sparkline) so they fit.
-                let cols = min(monitor.coreCount, 4)
-                let rows = (monitor.coreCount + cols - 1) / cols
-
-                VStack(spacing: isOverview ? 4 : 8) {
-                    ForEach(0..<rows, id: \.self) { row in
-                        HStack(spacing: isOverview ? 4 : 8) {
-                            ForEach(0..<cols, id: \.self) { col in
-                                let coreIdx = row * cols + col
-                                if coreIdx < monitor.coreCount {
-                                    CoreCell(
-                                        index: coreIdx,
-                                        coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
-                                        history: windowedHistory,
-                                        color: coreColors[coreIdx],
-                                        onTap: { zoomedCore = coreIdx },
-                                        compact: isOverview
-                                    )
-                                } else {
-                                    Color.clear.frame(maxWidth: .infinity)
+                if isOverview {
+                    // Overview: tiny pill-style core indicators — label + mini bar + %, click to zoom
+                    let cols = 6
+                    let rows = (monitor.coreCount + cols - 1) / cols
+                    VStack(spacing: 3) {
+                        ForEach(0..<rows, id: \.self) { row in
+                            HStack(spacing: 3) {
+                                ForEach(0..<cols, id: \.self) { col in
+                                    let coreIdx = row * cols + col
+                                    if coreIdx < monitor.coreCount {
+                                        MiniCoreCell(
+                                            index: coreIdx,
+                                            coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
+                                            history: windowedHistory,
+                                            color: coreColors[coreIdx],
+                                            onTap: { zoomedCore = coreIdx }
+                                        )
+                                    } else {
+                                        Color.clear.frame(maxWidth: .infinity)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Full CPU tab: large cells with tall sparklines
+                    let cols = min(monitor.coreCount, 4)
+                    let rows = (monitor.coreCount + cols - 1) / cols
+                    VStack(spacing: 8) {
+                        ForEach(0..<rows, id: \.self) { row in
+                            HStack(spacing: 8) {
+                                ForEach(0..<cols, id: \.self) { col in
+                                    let coreIdx = row * cols + col
+                                    if coreIdx < monitor.coreCount {
+                                        CoreCell(
+                                            index: coreIdx,
+                                            coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
+                                            history: windowedHistory,
+                                            color: coreColors[coreIdx],
+                                            onTap: { zoomedCore = coreIdx }
+                                        )
+                                    } else {
+                                        Color.clear.frame(maxWidth: .infinity)
+                                    }
                                 }
                             }
                         }
@@ -219,14 +242,80 @@ struct CPUView: View {
 
 // MARK: - Per-Core Cell
 
+// MARK: - Mini Core Cell (overview only — very compact, click to zoom)
+
+struct MiniCoreCell: View {
+    let index: Int
+    let coreClass: CoreClass
+    let history: [CPUSample]
+    let color: Color
+    let onTap: () -> Void
+
+    @State private var isHovered = false
+
+    private var values: [Double] {
+        history.compactMap { index < $0.corePercents.count ? $0.corePercents[index] : nil }
+    }
+    private var current: Double { values.last ?? 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            // Label + live %
+            HStack(spacing: 0) {
+                Text("C\(index)")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(DS.textMuted)
+                Spacer(minLength: 2)
+                Text(String(format: "%.0f%%", current))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(color)
+                    .contentTransition(.numericText())
+            }
+
+            // Tiny sparkline
+            SparklineChart(values: values, maxValue: 100, color: color,
+                           showGradient: true, lineWidth: 1.0)
+                .frame(height: 20)
+
+            // Thin usage bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2).fill(DS.border)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(color.opacity(0.8))
+                        .frame(width: geo.size.width * CGFloat(current / 100))
+                        .animation(.linear(duration: 0.4), value: current)
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isHovered ? DS.surfaceHover : DS.bg)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(isHovered ? color.opacity(0.5) : DS.border, lineWidth: 0.5)
+                )
+        )
+        .frame(maxWidth: .infinity)
+        .scaleEffect(isHovered ? 1.03 : 1.0)
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        .onTapGesture { onTap() }
+        .cursor(.pointingHand)
+    }
+}
+
+// MARK: - Per-Core Cell (full CPU tab)
+
 struct CoreCell: View {
     let index: Int
     let coreClass: CoreClass
     let history: [CPUSample]
     let color: Color
     let onTap: () -> Void
-    /// When true, uses a shorter sparkline height so cells fit in the overview card.
-    var compact: Bool = false
 
     @State private var isHovered = false
 
@@ -257,7 +346,7 @@ struct CoreCell: View {
                     .contentTransition(.numericText())
             }
 
-            // Sparkline — shorter in compact/overview mode
+            // Sparkline
             SparklineChart(
                 values: values,
                 maxValue: 100,
@@ -265,7 +354,7 @@ struct CoreCell: View {
                 showGradient: true,
                 lineWidth: 1.5
             )
-            .frame(height: compact ? 30 : 60)
+            .frame(height: 60)
 
             // Usage bar — thicker
             GeometryReader { geo in
