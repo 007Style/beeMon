@@ -105,7 +105,10 @@ struct CPUView: View {
         Array(monitor.cpuHistory.suffix(timeWindow.rawValue))
     }
     private var latestCPU: CPUSample? { monitor.cpuHistory.last }
-    private var cpuPercents: [Double]  { windowedHistory.map(\.totalPercent) }
+    private var cpuPercents: [Double]    { windowedHistory.map(\.totalPercent) }
+    private var userPercents: [Double]   { windowedHistory.map(\.totalUserPercent) }
+    private var systemPercents: [Double] { windowedHistory.map(\.totalSystemPercent) }
+    private var idlePercents: [Double]   { windowedHistory.map(\.totalIdlePercent) }
 
     var body: some View {
         MetricCard(glowColor: DS.cpuColor) {
@@ -138,22 +141,15 @@ struct CPUView: View {
                     }
                 }
 
-                // Total CPU sparkline
+                // Total CPU stacked sparkline — user / system / idle
                 if !cpuPercents.isEmpty {
-                    SparklineChart(
-                        values: cpuPercents,
-                        maxValue: 100,
-                        color: DS.cpuColor,
-                        showGradient: true,
-                        lineWidth: 2
+                    CPUBreakdownChart(
+                        userValues:   userPercents,
+                        systemValues: systemPercents,
+                        idleValues:   idlePercents,
+                        windowLabel:  timeWindow.label
                     )
                     .frame(height: 56)
-                    .overlay(alignment: .bottomLeading) {
-                        Text(timeWindow.label)
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(DS.textMuted)
-                            .padding(.bottom, 2)
-                    }
                 }
 
                 Divider().background(DS.border)
@@ -296,6 +292,60 @@ struct CoreCell: View {
     }
 }
 
+// MARK: - CPU Breakdown Chart (User / System / Idle stacked lines + legend)
+
+struct CPUBreakdownChart: View {
+    let userValues:   [Double]
+    let systemValues: [Double]
+    let idleValues:   [Double]
+    var windowLabel: String = ""
+
+    // Design colours
+    private let userColor:   Color = DS.cpuColor                             // sky blue
+    private let systemColor: Color = Color(red: 1.0, green: 0.60, blue: 0.20) // amber
+    private let idleColor:   Color = Color(red: 0.28, green: 0.90, blue: 0.60) // mint
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                // Idle (bottom, faintest fill)
+                SparklineChart(values: idleValues,   maxValue: 100, color: idleColor,
+                               showGradient: true,  lineWidth: 1.2)
+                // System
+                SparklineChart(values: systemValues, maxValue: 100, color: systemColor,
+                               showGradient: false, lineWidth: 1.5)
+                // User (top, most prominent)
+                SparklineChart(values: userValues,   maxValue: 100, color: userColor,
+                               showGradient: false, lineWidth: 2)
+            }
+            .overlay(alignment: .bottomLeading) {
+                Text(windowLabel)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(DS.textMuted)
+                    .padding(.bottom, 2)
+            }
+
+            // Legend
+            HStack(spacing: 12) {
+                cpuLegendDot(color: userColor,   label: "User")
+                cpuLegendDot(color: systemColor, label: "System")
+                cpuLegendDot(color: idleColor,   label: "Idle")
+                Spacer()
+            }
+        }
+    }
+
+    private func cpuLegendDot(color: Color, label: String) -> some View {
+        HStack(spacing: 3) {
+            Circle().fill(color).frame(width: 5, height: 5)
+                .shadow(color: color.opacity(0.6), radius: 2)
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(DS.textSecondary)
+        }
+    }
+}
+
 // MARK: - Core Zoom Overlay
 
 struct CoreZoomOverlay: View {
@@ -305,92 +355,96 @@ struct CoreZoomOverlay: View {
     let color: Color
     let onClose: () -> Void
 
-    private var values: [Double] {
-        history.compactMap {
-            index < $0.corePercents.count ? $0.corePercents[index] : nil
-        }
-    }
-    private var current: Double { values.last ?? 0 }
-    private var avg: Double { values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count) }
-    private var peak: Double { values.max() ?? 0 }
+    private var userValues:   [Double] { history.compactMap { index < $0.userPercents.count   ? $0.userPercents[index]   : nil } }
+    private var systemValues: [Double] { history.compactMap { index < $0.systemPercents.count ? $0.systemPercents[index] : nil } }
+    private var idleValues:   [Double] { history.compactMap { index < $0.idlePercents.count   ? $0.idlePercents[index]   : nil } }
+    private var totalValues:  [Double] { history.compactMap { index < $0.corePercents.count   ? $0.corePercents[index]   : nil } }
+
+    private var current: Double { totalValues.last ?? 0 }
+    private var avg: Double     { totalValues.isEmpty ? 0 : totalValues.reduce(0,+) / Double(totalValues.count) }
+    private var peak: Double    { totalValues.max() ?? 0 }
+
+    private var currentUser:   Double { userValues.last   ?? 0 }
+    private var currentSystem: Double { systemValues.last ?? 0 }
+    private var currentIdle:   Double { idleValues.last   ?? 0 }
+
+    private let userColor   = DS.cpuColor
+    private let systemColor = Color(red: 1.0,  green: 0.60, blue: 0.20)
+    private let idleColor   = Color(red: 0.28, green: 0.90, blue: 0.60)
 
     var body: some View {
         ZStack {
-            // Dimmed backdrop — tap to dismiss
-            Color.black.opacity(0.55)
-                .ignoresSafeArea()
-                .onTapGesture { onClose() }
+            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { onClose() }
 
             VStack(alignment: .leading, spacing: 16) {
-                // Header row
+                // Header
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
                             Text("Core \(index)")
                                 .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundStyle(DS.textPrimary)
-                            // Class pill
                             Text(coreClass.fullLabel)
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(coreClass.color)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(
-                                    Capsule()
-                                        .fill(coreClass.color.opacity(0.15))
+                                    Capsule().fill(coreClass.color.opacity(0.15))
                                         .overlay(Capsule().stroke(coreClass.color.opacity(0.35), lineWidth: 0.5))
                                 )
                         }
                         Text("2-minute rolling window  ·  1s samples")
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.textMuted)
+                            .font(.system(size: 11)).foregroundStyle(DS.textMuted)
                     }
-
                     Spacer()
-
-                    // Close button
                     Button(action: onClose) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(DS.textMuted)
+                            .font(.system(size: 20)).foregroundStyle(DS.textMuted)
                     }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.escape, modifiers: [])
+                    .buttonStyle(.plain).keyboardShortcut(.escape, modifiers: [])
                 }
 
-                // Big sparkline
-                SparklineChart(
-                    values: values,
-                    maxValue: 100,
-                    color: color,
-                    showGradient: true,
-                    lineWidth: 2.5
+                // Stacked breakdown chart
+                CPUBreakdownChart(
+                    userValues:   userValues,
+                    systemValues: systemValues,
+                    idleValues:   idleValues
                 )
                 .frame(height: 160)
+                .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(DS.bg)
                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.border))
                 )
 
-                // Stats row
+                // Stats — Now / Avg / Peak for total active
                 HStack(spacing: 0) {
-                    zoomStat(label: "Now", value: String(format: "%.1f%%", current), color: color)
-                    Divider().background(DS.border).frame(height: 32).padding(.horizontal, 16)
-                    zoomStat(label: "Avg (2m)", value: String(format: "%.1f%%", avg), color: DS.textSecondary)
-                    Divider().background(DS.border).frame(height: 32).padding(.horizontal, 16)
-                    zoomStat(label: "Peak (2m)", value: String(format: "%.1f%%", peak), color: DS.netOutColor)
+                    zoomStat(label: "Total Now",  value: String(format: "%.1f%%", current),   color: color)
+                    statDivider()
+                    zoomStat(label: "Avg (2m)",   value: String(format: "%.1f%%", avg),        color: DS.textSecondary)
+                    statDivider()
+                    zoomStat(label: "Peak (2m)",  value: String(format: "%.1f%%", peak),       color: DS.netOutColor)
                 }
                 .frame(maxWidth: .infinity)
+
+                // Breakdown row
+                HStack(spacing: 0) {
+                    zoomStat(label: "User",   value: String(format: "%.1f%%", currentUser),   color: userColor)
+                    statDivider()
+                    zoomStat(label: "System", value: String(format: "%.1f%%", currentSystem), color: systemColor)
+                    statDivider()
+                    zoomStat(label: "Idle",   value: String(format: "%.1f%%", currentIdle),   color: idleColor)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, -8)
             }
             .padding(24)
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(DS.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(DS.borderBright, lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(DS.borderBright, lineWidth: 1))
                     .shadow(color: color.opacity(0.15), radius: 30)
             )
             .padding(40)
@@ -400,14 +454,16 @@ struct CoreZoomOverlay: View {
     private func zoomStat(label: String, value: String, color: Color) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                .foregroundStyle(color)
-                .contentTransition(.numericText())
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundStyle(color).contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 10))
-                .foregroundStyle(DS.textMuted)
+                .font(.system(size: 10)).foregroundStyle(DS.textMuted)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func statDivider() -> some View {
+        Divider().background(DS.border).frame(height: 32).padding(.horizontal, 12)
     }
 }
 

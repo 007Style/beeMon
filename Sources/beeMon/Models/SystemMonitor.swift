@@ -9,7 +9,16 @@ struct CPUSample: Identifiable {
     let id = UUID()
     let timestamp: Date
     let totalPercent: Double
-    let corePercents: [Double]
+    let corePercents: [Double]        // active (user+sys+nice) per core
+    // Per-core breakdowns — parallel arrays, same length as corePercents
+    let userPercents: [Double]        // user-space time per core
+    let systemPercents: [Double]      // kernel time per core
+    let idlePercents: [Double]        // idle time per core
+
+    // Aggregate across all cores
+    var totalUserPercent: Double   { corePercents.isEmpty ? 0 : userPercents.reduce(0,+)   / Double(userPercents.count) }
+    var totalSystemPercent: Double { corePercents.isEmpty ? 0 : systemPercents.reduce(0,+) / Double(systemPercents.count) }
+    var totalIdlePercent: Double   { corePercents.isEmpty ? 0 : idlePercents.reduce(0,+)   / Double(idlePercents.count) }
 }
 
 struct MemorySample: Identifiable {
@@ -149,24 +158,40 @@ class SystemMonitor: ObservableObject {
             currentTicks.append(CPUTicks(user: user, system: system, idle: idle, nice: nice))
         }
 
-        var corePercents: [Double] = Array(repeating: 0, count: coreN)
+        var corePercents:   [Double] = Array(repeating: 0, count: coreN)
+        var userPercents:   [Double] = Array(repeating: 0, count: coreN)
+        var systemPercents: [Double] = Array(repeating: 0, count: coreN)
+        var idlePercents:   [Double] = Array(repeating: 0, count: coreN)
 
         if prevCoreTicks.count == coreN {
             for i in 0..<coreN {
                 let prev = prevCoreTicks[i]
                 let curr = currentTicks[i]
                 let totalDelta = Int64(curr.total) - Int64(prev.total)
-                let activeDelta = Int64(curr.active) - Int64(prev.active)
-                if totalDelta > 0 {
-                    corePercents[i] = min(100, max(0, Double(activeDelta) / Double(totalDelta) * 100))
-                }
+                guard totalDelta > 0 else { continue }
+                let td = Double(totalDelta)
+                let userDelta   = max(0, Int64(curr.user)   - Int64(prev.user))
+                let sysDelta    = max(0, Int64(curr.system) - Int64(prev.system))
+                let idleDelta   = max(0, Int64(curr.idle)   - Int64(prev.idle))
+                let activeDelta = max(0, Int64(curr.active) - Int64(prev.active))
+                corePercents[i]   = min(100, Double(activeDelta) / td * 100)
+                userPercents[i]   = min(100, Double(userDelta)   / td * 100)
+                systemPercents[i] = min(100, Double(sysDelta)    / td * 100)
+                idlePercents[i]   = min(100, Double(idleDelta)   / td * 100)
             }
         }
 
         prevCoreTicks = currentTicks
 
         let totalPercent = corePercents.isEmpty ? 0 : corePercents.reduce(0, +) / Double(corePercents.count)
-        let sample = CPUSample(timestamp: Date(), totalPercent: totalPercent, corePercents: corePercents)
+        let sample = CPUSample(
+            timestamp: Date(),
+            totalPercent: totalPercent,
+            corePercents: corePercents,
+            userPercents: userPercents,
+            systemPercents: systemPercents,
+            idlePercents: idlePercents
+        )
         cpuBuffer.append(sample)
         coreCount = coreN
     }

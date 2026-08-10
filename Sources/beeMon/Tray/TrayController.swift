@@ -159,11 +159,27 @@ class TrayController: NSObject {
 
     private func showContextMenu() {
         let menu = NSMenu()
+
+        // Open
         menu.addItem(NSMenuItem(title: "Open beeMon", action: #selector(openDashboard), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+
+        // Login item checkbox
+        let loginItem = NSMenuItem(
+            title: "Start at Login",
+            action: #selector(toggleLoginItem),
+            keyEquivalent: ""
+        )
+        loginItem.state = LoginItemManager.shared.isEnabled ? .on : .off
+        menu.addItem(loginItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // About / Quit
         menu.addItem(NSMenuItem(title: "About beeMon…", action: #selector(showAbout), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit beeMon", action: #selector(quit), keyEquivalent: "q"))
+
         menu.items.forEach { $0.target = self }
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
@@ -172,6 +188,10 @@ class TrayController: NSObject {
 
     @objc private func openDashboard() {
         toggleDashboard()
+    }
+
+    @objc private func toggleLoginItem() {
+        LoginItemManager.shared.toggle()
     }
 
     @objc private func showAbout() {
