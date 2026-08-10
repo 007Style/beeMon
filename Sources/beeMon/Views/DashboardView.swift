@@ -37,8 +37,7 @@ struct DashboardView: View {
                 Divider()
                     .background(DS.border)
 
-                // Overview is a fixed layout that fills exactly the remaining space.
-                // All other tabs scroll freely.
+                // Overview sizes to content; other tabs scroll inside a fixed height.
                 if selectedTab == .overview {
                     overviewGrid
                         .padding(DS.spacing)
@@ -47,10 +46,12 @@ struct DashboardView: View {
                         content
                             .padding(DS.spacing)
                     }
+                    .frame(height: 680)
                 }
             }
         }
-        .frame(width: 720, height: 780)
+        .frame(width: 720)
+        .fixedSize(horizontal: true, vertical: true)
         .preferredColorScheme(.dark)
     }
 
@@ -203,21 +204,18 @@ struct DashboardView: View {
     // MARK: Overview — fixed layout, fills remaining height, no scroll
 
     private var overviewGrid: some View {
-        GeometryReader { geo in
-            VStack(spacing: DS.spacing) {
-                // Top row: CPU + Memory side by side — takes natural height
-                HStack(alignment: .top, spacing: DS.spacing) {
-                    CPUView(monitor: monitor, isOverview: true)
-                        .frame(maxWidth: .infinity)
-                    MemoryView(monitor: monitor, isOverview: true)
-                        .frame(maxWidth: .infinity)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-
-                // Network fills the remainder — capped at max 2 rows on overview
-                NetworkView(monitor: monitor, activeOnly: true, overviewMaxInterfaces: 2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        VStack(spacing: DS.spacing) {
+            // Top row: CPU + Memory side by side — natural height
+            HStack(alignment: .top, spacing: DS.spacing) {
+                CPUView(monitor: monitor, isOverview: true)
+                    .frame(maxWidth: .infinity)
+                MemoryView(monitor: monitor, isOverview: true)
+                    .frame(maxWidth: .infinity)
             }
+
+            // Network below — capped at 2 interfaces on overview
+            NetworkView(monitor: monitor, activeOnly: true, overviewMaxInterfaces: 2)
+                .frame(maxWidth: .infinity)
         }
     }
 }
