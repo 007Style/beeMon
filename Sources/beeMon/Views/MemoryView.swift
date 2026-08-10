@@ -72,9 +72,14 @@ struct MemoryView: View {
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .foregroundStyle(DS.memColor)
                                 .contentTransition(.numericText())
-                            Text("\(formatBytes(Double(mem.usedBytes))) used  /  \(formatBytes(Double(mem.totalBytes))) physical")
-                                .font(.system(size: 10, weight: .regular))
+                            Text("\(formatBytes(Double(mem.usedBytes))) used")
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(DS.textSecondary)
+                                .lineLimit(1)
+                            Text("\(formatBytes(Double(mem.totalBytes))) physical")
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundStyle(DS.textMuted)
+                                .lineLimit(1)
                         }
                     }
                 }
