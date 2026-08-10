@@ -213,70 +213,56 @@ struct MemoryMetricRow: View {
     }
 }
 
-// MARK: - Tooltip Label (5-second delay popup)
+// MARK: - Tooltip Label (click ⓘ to expand/collapse)
 
 struct TooltipLabel: View {
     let label: String
     let tooltip: String
     let color: Color
 
-    @State private var isHovering = false
-    @State private var showTooltip = false
-    @State private var hoverTask: Task<Void, Never>?
+    @State private var expanded = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 5, height: 5)
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(DS.textSecondary)
-            Image(systemName: "info.circle")
-                .font(.system(size: 8))
-                .foregroundStyle(DS.textMuted.opacity(isHovering ? 1 : 0))
-        }
-        .frame(width: 110, alignment: .leading)
-        .overlay(alignment: .topLeading) {
-            if showTooltip {
-                tooltipBubble
-                    .offset(y: -8)
-                    .zIndex(100)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .bottomLeading)))
-            }
-        }
-        .onHover { hovering in
-            isHovering = hovering
-            hoverTask?.cancel()
-            if hovering {
-                hoverTask = Task {
-                    try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-                    if !Task.isCancelled {
-                        withAnimation(.easeIn(duration: 0.15)) { showTooltip = true }
-                    }
+        VStack(alignment: .leading, spacing: 0) {
+            // Label row with clickable ⓘ
+            HStack(spacing: 4) {
+                Circle().fill(color).frame(width: 5, height: 5)
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(DS.textSecondary)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
+                } label: {
+                    Image(systemName: expanded ? "info.circle.fill" : "info.circle")
+                        .font(.system(size: 9))
+                        .foregroundStyle(expanded ? color : DS.textMuted)
                 }
-            } else {
-                withAnimation(.easeOut(duration: 0.12)) { showTooltip = false }
+                .buttonStyle(.plain)
+            }
+            .frame(width: 110, alignment: .leading)
+
+            // Inline expandable description
+            if expanded {
+                Text(tooltip)
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .lineSpacing(2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: 260, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color(red: 0.10, green: 0.10, blue: 0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .stroke(color.opacity(0.35), lineWidth: 0.5)
+                            )
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 5)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-    }
-
-    private var tooltipBubble: some View {
-        Text(tooltip)
-            .font(.system(size: 11))
-            .foregroundStyle(DS.textPrimary)
-            .multilineTextAlignment(.leading)
-            .lineSpacing(2)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .frame(maxWidth: 260, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color(red: 0.14, green: 0.14, blue: 0.20))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(DS.borderBright, lineWidth: 0.5)
-                    )
-                    .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 4)
-            )
-            .fixedSize(horizontal: false, vertical: true)
     }
 }

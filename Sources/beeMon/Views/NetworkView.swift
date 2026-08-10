@@ -4,30 +4,77 @@ import SwiftUI
 
 struct NetworkView: View {
     @ObservedObject var monitor: SystemMonitor
+    /// When true only interfaces with recent activity are shown (overview mode).
+    var activeOnly: Bool = false
 
-    private var interfaces: [String] {
+    /// All interfaces that have ever transferred data (already filtered by SystemMonitor).
+    private var allInterfaces: [String] {
         let names = (monitor.netHistory.last?.interfaces.keys).map(Array.init) ?? []
         return names.sorted()
     }
 
+    /// Interfaces with traffic in the current sample (rate > 0).
+    private var activeInterfaces: [String] {
+        allInterfaces.filter { name in
+            monitor.netHistory.last?.interfaces[name].map {
+                $0.rateIn > 0 || $0.rateOut > 0
+            } ?? false
+        }
+    }
+
+    private var displayedInterfaces: [String] { activeOnly ? activeInterfaces : allInterfaces }
+
     var body: some View {
         MetricCard(glowColor: DS.netInColor) {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader("Network", subtitle: "\(interfaces.count) interfaces", color: DS.netInColor)
+                SectionHeader(
+                    "Network",
+                    subtitle: activeOnly
+                        ? "\(activeInterfaces.count) active"
+                        : "\(allInterfaces.count) interfaces",
+                    color: DS.netInColor
+                )
 
-                if interfaces.isEmpty {
-                    Text("No active interfaces")
+                if displayedInterfaces.isEmpty {
+                    Text(activeOnly ? "No active traffic" : "No interfaces")
                         .font(.system(size: 12))
                         .foregroundStyle(DS.textMuted)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 20)
                 } else {
                     VStack(spacing: 10) {
-                        ForEach(interfaces, id: \.self) { iface in
+                        ForEach(displayedInterfaces, id: \.self) { iface in
                             InterfaceRow(
                                 name: iface,
                                 history: monitor.netHistory
                             )
+                        }
+                    }
+                }
+
+                // On the full tab, show dimmed inactive interfaces
+                if !activeOnly {
+                    let inactive = allInterfaces.filter { !activeInterfaces.contains($0) }
+                    if !inactive.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Inactive")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(DS.textMuted)
+                                .padding(.top, 4)
+                            HStack(spacing: 6) {
+                                ForEach(inactive, id: \.self) { name in
+                                    Text(name)
+                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(DS.textMuted)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .fill(DS.bg)
+                                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(DS.border, lineWidth: 0.5))
+                                        )
+                                }
+                            }
                         }
                     }
                 }

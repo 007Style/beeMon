@@ -203,8 +203,8 @@ struct DashboardView: View {
                 MemoryView(monitor: monitor)
                     .frame(maxWidth: .infinity)
             }
-            // Network full width
-            NetworkView(monitor: monitor)
+            // Network full width — overview shows active interfaces only
+            NetworkView(monitor: monitor, activeOnly: true)
         }
     }
 }
