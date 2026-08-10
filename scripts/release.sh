@@ -41,6 +41,13 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
+# Copy app icon if present
+ICNS_SRC="$ROOT/Sources/beeMon/Assets/AppIcon.icns"
+if [ -f "$ICNS_SRC" ]; then
+  cp "$ICNS_SRC" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+  echo "  Icon: AppIcon.icns"
+fi
+
 cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -57,6 +64,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
     <key>LSUIElement</key>              <true/>
     <key>NSHighResolutionCapable</key>  <true/>
     <key>LSMinimumSystemVersion</key>   <string>13.0</string>
+    <key>CFBundleIconFile</key>         <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key> <string>© 2025 Daneyand &amp; IBM's Bob</string>
 </dict>
 </plist>
