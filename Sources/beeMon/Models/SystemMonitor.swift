@@ -15,8 +15,17 @@ struct CPUSample: Identifiable {
 struct MemorySample: Identifiable {
     let id = UUID()
     let timestamp: Date
-    let usedBytes: UInt64
+    // totals
     let totalBytes: UInt64
+    let usedBytes: UInt64          // app + wired + compressed (excludes free/inactive/cached)
+    // breakdown
+    let appBytes: UInt64           // anonymous pages (app memory)
+    let wiredBytes: UInt64         // wired memory (kernel / always resident)
+    let compressedBytes: UInt64    // compressed memory
+    let cachedBytes: UInt64        // file-backed cached pages (purgeable + inactive file)
+    let swapUsedBytes: UInt64      // swap used
+    let swapTotalBytes: UInt64     // swap total size
+
     var usedPercent: Double { totalBytes > 0 ? Double(usedBytes) / Double(totalBytes) * 100 : 0 }
 }
 
@@ -31,6 +40,8 @@ struct InterfaceStats {
     let bytesOut: UInt64
     let rateIn: Double   // bytes/sec
     let rateOut: Double  // bytes/sec
+    /// True when the interface has a link (non-zero counters that have grown, or rate > 0)
+    var isActive: Bool { rateIn > 0 || rateOut > 0 || bytesIn > 0 || bytesOut > 0 }
 }
 
 // MARK: - Rolling Buffer
@@ -174,13 +185,39 @@ class SystemMonitor: ObservableObject {
 
         guard result == KERN_SUCCESS else { return }
 
-        let pageSize = UInt64(vm_page_size)
-        let totalBytes = UInt64(ProcessInfo.processInfo.physicalMemory)
-        let freePages = UInt64(vmStats.free_count) + UInt64(vmStats.inactive_count)
-        let freeBytes = freePages * pageSize
-        let usedBytes = totalBytes > freeBytes ? totalBytes - freeBytes : 0
+        let pageSize    = UInt64(vm_page_size)
+        let total       = UInt64(ProcessInfo.processInfo.physicalMemory)
 
-        let sample = MemorySample(timestamp: Date(), usedBytes: usedBytes, totalBytes: totalBytes)
+        // Memory breakdown (all in bytes)
+        let wired       = UInt64(vmStats.wire_count)       * pageSize
+        let compressed  = UInt64(vmStats.compressor_page_count) * pageSize
+        // "App memory" = active anonymous (internal) pages
+        let app         = UInt64(vmStats.internal_page_count > vmStats.purgeable_count
+                            ? vmStats.internal_page_count - vmStats.purgeable_count : 0) * pageSize
+        // Cached files = purgeable + inactive file-backed
+        let cached      = (UInt64(vmStats.purgeable_count) + UInt64(vmStats.external_page_count)) * pageSize
+
+        // Used = app + wired + compressed  (matches Activity Monitor's "Memory Used")
+        let used        = app + wired + compressed
+
+        // Swap — read from sysctl
+        var xswUsage    = xsw_usage()
+        var xswLen      = MemoryLayout<xsw_usage>.size
+        sysctlbyname("vm.swapusage", &xswUsage, &xswLen, nil, 0)
+        let swapUsed    = xswUsage.xsu_used
+        let swapTotal   = xswUsage.xsu_total
+
+        let sample = MemorySample(
+            timestamp: Date(),
+            totalBytes: total,
+            usedBytes: min(used, total),
+            appBytes: app,
+            wiredBytes: wired,
+            compressedBytes: compressed,
+            cachedBytes: cached,
+            swapUsedBytes: swapUsed,
+            swapTotalBytes: swapTotal
+        )
         memBuffer.append(sample)
     }
 
@@ -236,12 +273,16 @@ class SystemMonitor: ObservableObject {
                 rateOut = 0
             }
 
-            interfaces[name] = InterfaceStats(
+            let stats = InterfaceStats(
                 bytesIn: curr.bytesIn,
                 bytesOut: curr.bytesOut,
                 rateIn: rateIn,
                 rateOut: rateOut
             )
+            // Only include interfaces that have ever transferred data
+            if stats.isActive {
+                interfaces[name] = stats
+            }
         }
 
         prevNetCounters = counters
