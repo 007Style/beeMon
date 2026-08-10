@@ -164,13 +164,14 @@ class TrayController: NSObject {
         menu.addItem(NSMenuItem(title: "Open beeMon", action: #selector(openDashboard), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
-        // Login item checkbox
+        // Login item checkbox — read the @Published value directly
         let loginItem = NSMenuItem(
             title: "Start at Login",
             action: #selector(toggleLoginItem),
             keyEquivalent: ""
         )
         loginItem.state = LoginItemManager.shared.isEnabled ? .on : .off
+        loginItem.target = self
         menu.addItem(loginItem)
 
         menu.addItem(NSMenuItem.separator())
