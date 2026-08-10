@@ -46,9 +46,14 @@ private let memMetrics: [MemMetric] = [
 
 struct MemoryView: View {
     @ObservedObject var monitor: SystemMonitor
+    var showWindowPicker: Bool = false
+    @State private var timeWindow: TimeWindow = .twoMin
 
+    private var windowedHistory: [MemorySample] {
+        Array(monitor.memHistory.suffix(timeWindow.rawValue))
+    }
     private var latestMem: MemorySample? { monitor.memHistory.last }
-    private var memPercents: [Double] { monitor.memHistory.map(\.usedPercent) }
+    private var memPercents: [Double] { windowedHistory.map(\.usedPercent) }
 
     var body: some View {
         MetricCard(glowColor: DS.memColor) {
@@ -57,6 +62,10 @@ struct MemoryView: View {
                 HStack(alignment: .firstTextBaseline) {
                     SectionHeader("Memory", color: DS.memColor)
                     Spacer()
+                    if showWindowPicker {
+                        TimeWindowPicker(window: $timeWindow)
+                            .padding(.trailing, 8)
+                    }
                     VStack(alignment: .trailing, spacing: 2) {
                         if let mem = latestMem {
                             Text(String(format: "%.1f%%", mem.usedPercent))
@@ -81,7 +90,7 @@ struct MemoryView: View {
                     )
                     .frame(height: 56)
                     .overlay(alignment: .bottomLeading) {
-                        Text("2m")
+                        Text(timeWindow.label)
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(DS.textMuted)
                             .padding(.bottom, 2)

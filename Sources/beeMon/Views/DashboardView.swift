@@ -186,11 +186,11 @@ struct DashboardView: View {
         case .overview:
             overviewGrid
         case .cpu:
-            CPUView(monitor: monitor)
+            CPUView(monitor: monitor, showWindowPicker: true)
         case .memory:
-            MemoryView(monitor: monitor)
+            MemoryView(monitor: monitor, showWindowPicker: true)
         case .network:
-            NetworkView(monitor: monitor)
+            NetworkView(monitor: monitor, showWindowPicker: true)
         }
     }
 

@@ -6,6 +6,12 @@ struct NetworkView: View {
     @ObservedObject var monitor: SystemMonitor
     /// When true only interfaces with recent activity are shown (overview mode).
     var activeOnly: Bool = false
+    var showWindowPicker: Bool = false
+    @State private var timeWindow: TimeWindow = .twoMin
+
+    private var windowedHistory: [NetworkSample] {
+        Array(monitor.netHistory.suffix(timeWindow.rawValue))
+    }
 
     /// All interfaces that have ever transferred data (already filtered by SystemMonitor).
     private var allInterfaces: [String] {
@@ -27,13 +33,18 @@ struct NetworkView: View {
     var body: some View {
         MetricCard(glowColor: DS.netInColor) {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(
-                    "Network",
-                    subtitle: activeOnly
-                        ? "\(activeInterfaces.count) active"
-                        : "\(allInterfaces.count) interfaces",
-                    color: DS.netInColor
-                )
+                HStack {
+                    SectionHeader(
+                        "Network",
+                        subtitle: activeOnly
+                            ? "\(activeInterfaces.count) active"
+                            : "\(allInterfaces.count) interfaces",
+                        color: DS.netInColor
+                    )
+                    if showWindowPicker {
+                        TimeWindowPicker(window: $timeWindow)
+                    }
+                }
 
                 if displayedInterfaces.isEmpty {
                     Text(activeOnly ? "No active traffic" : "No interfaces")
@@ -46,7 +57,7 @@ struct NetworkView: View {
                         ForEach(displayedInterfaces, id: \.self) { iface in
                             InterfaceRow(
                                 name: iface,
-                                history: monitor.netHistory
+                                history: windowedHistory
                             )
                         }
                     }

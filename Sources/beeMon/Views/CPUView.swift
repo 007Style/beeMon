@@ -77,7 +77,9 @@ func detectCoreClasses(coreCount: Int) -> [CoreClass] {
 
 struct CPUView: View {
     @ObservedObject var monitor: SystemMonitor
+    var showWindowPicker: Bool = false
     @State private var zoomedCore: Int? = nil
+    @State private var timeWindow: TimeWindow = .twoMin
 
     private var coreClasses: [CoreClass] {
         detectCoreClasses(coreCount: monitor.coreCount)
@@ -99,8 +101,11 @@ struct CPUView: View {
         }
     }
 
+    private var windowedHistory: [CPUSample] {
+        Array(monitor.cpuHistory.suffix(timeWindow.rawValue))
+    }
     private var latestCPU: CPUSample? { monitor.cpuHistory.last }
-    private var cpuPercents: [Double]  { monitor.cpuHistory.map(\.totalPercent) }
+    private var cpuPercents: [Double]  { windowedHistory.map(\.totalPercent) }
 
     var body: some View {
         MetricCard(glowColor: DS.cpuColor) {
@@ -109,11 +114,15 @@ struct CPUView: View {
                 HStack {
                     SectionHeader("CPU", subtitle: "\(monitor.coreCount) cores", color: DS.cpuColor)
                     Spacer()
+                    if showWindowPicker {
+                        TimeWindowPicker(window: $timeWindow)
+                    }
                     if let latest = latestCPU {
                         Text(String(format: "%.1f%%", latest.totalPercent))
                             .font(.system(size: 26, weight: .bold, design: .rounded))
                             .foregroundStyle(DS.cpuColor)
                             .contentTransition(.numericText())
+                            .padding(.leading, 8)
                     }
                 }
 
@@ -140,7 +149,7 @@ struct CPUView: View {
                     )
                     .frame(height: 56)
                     .overlay(alignment: .bottomLeading) {
-                        Text("2m")
+                        Text(timeWindow.label)
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(DS.textMuted)
                             .padding(.bottom, 2)
@@ -162,7 +171,7 @@ struct CPUView: View {
                                     CoreCell(
                                         index: coreIdx,
                                         coreClass: coreIdx < classes.count ? classes[coreIdx] : .unknown,
-                                        history: monitor.cpuHistory,
+                                        history: windowedHistory,
                                         color: coreColors[coreIdx],
                                         onTap: { zoomedCore = coreIdx }
                                     )

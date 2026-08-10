@@ -81,6 +81,51 @@ struct SectionHeader: View {
     }
 }
 
+
+// MARK: - Time Window
+
+enum TimeWindow: Int, CaseIterable {
+    case twoMin  = 120
+    case tenMin  = 600
+
+    var label: String {
+        switch self {
+        case .twoMin:  return "2m"
+        case .tenMin:  return "10m"
+        }
+    }
+}
+
+struct TimeWindowPicker: View {
+    @Binding var window: TimeWindow
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(TimeWindow.allCases, id: \.self) { w in
+                Button(action: { withAnimation(.easeInOut(duration: 0.18)) { window = w } }) {
+                    Text(w.label)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(window == w ? DS.bg : DS.textMuted)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(window == w ? DS.cpuColor : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(
+            Capsule()
+                .fill(DS.bg)
+                .overlay(Capsule().stroke(DS.border, lineWidth: 0.5))
+        )
+    }
+}
+
+
 // MARK: - Byte Formatter
 
 func formatBytes(_ bytes: Double, perSecond: Bool = false) -> String {

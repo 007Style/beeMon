@@ -83,16 +83,15 @@ private struct CPUTicks {
 class SystemMonitor: ObservableObject {
     static let shared = SystemMonitor()
 
-    // Published rolling windows (120 samples = 2 min at 1 Hz)
+    // Published rolling windows — 600 samples = 10 min at 1 Hz
     @Published var cpuHistory: [CPUSample] = []
     @Published var memHistory: [MemorySample] = []
     @Published var netHistory: [NetworkSample] = []
     @Published var coreCount: Int = 1
 
-    private let windowSize = 120
-    private let cpuBuffer = RollingBuffer<CPUSample>(capacity: 120)
-    private let memBuffer = RollingBuffer<MemorySample>(capacity: 120)
-    private let netBuffer = RollingBuffer<NetworkSample>(capacity: 120)
+    private let cpuBuffer = RollingBuffer<CPUSample>(capacity: 600)
+    private let memBuffer = RollingBuffer<MemorySample>(capacity: 600)
+    private let netBuffer = RollingBuffer<NetworkSample>(capacity: 600)
 
     private var timer: Timer?
     private var prevCoreTicks: [CPUTicks] = []
