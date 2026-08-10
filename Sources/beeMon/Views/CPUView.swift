@@ -154,13 +154,13 @@ struct CPUView: View {
 
                 Divider().background(DS.border)
 
-                // Per-core grid
-                let cols = min(monitor.coreCount, 8)
+                // Per-core grid — 4 cols max so cells are large and readable
+                let cols = min(monitor.coreCount, 4)
                 let rows = (monitor.coreCount + cols - 1) / cols
 
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     ForEach(0..<rows, id: \.self) { row in
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             ForEach(0..<cols, id: \.self) { col in
                                 let coreIdx = row * cols + col
                                 if coreIdx < monitor.coreCount {
@@ -232,49 +232,53 @@ struct CoreCell: View {
     private var current: Double { values.last ?? 0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 3) {
-                Text("C\(index)")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(DS.textMuted)
-                // Core class badge
+        VStack(alignment: .leading, spacing: 6) {
+            // Header: label + class badge + live %
+            HStack(spacing: 4) {
+                Text("Core \(index)")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(DS.textSecondary)
                 Text(coreClass.label)
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(coreClass.color)
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(
-                        Capsule().fill(coreClass.color.opacity(0.15))
-                    )
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(coreClass.color.opacity(0.15)))
                 Spacer()
-                Text(String(format: "%.0f%%", current))
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                Text(String(format: "%.1f%%", current))
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundStyle(color)
                     .contentTransition(.numericText())
             }
 
+            // Bigger sparkline
             SparklineChart(
                 values: values,
                 maxValue: 100,
                 color: color,
                 showGradient: true,
-                lineWidth: 1
+                lineWidth: 1.5
             )
-            .frame(height: 28)
+            .frame(height: 60)
 
-            // Usage bar
+            // Usage bar — thicker
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2).fill(DS.border)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(color.opacity(0.8))
+                    RoundedRectangle(cornerRadius: 3).fill(DS.border)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(
+                            LinearGradient(
+                                colors: [color.opacity(0.5), color],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
                         .frame(width: geo.size.width * CGFloat(current / 100))
                         .animation(.linear(duration: 0.4), value: current)
                 }
             }
-            .frame(height: 3)
+            .frame(height: 5)
         }
-        .padding(8)
+        .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(isHovered ? DS.surfaceHover : DS.bg)

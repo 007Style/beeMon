@@ -46,6 +46,7 @@ private let memMetrics: [MemMetric] = [
 
 struct MemoryView: View {
     @ObservedObject var monitor: SystemMonitor
+    @ObservedObject var processMonitor: ProcessMonitor = .shared
     var showWindowPicker: Bool = false
     @State private var timeWindow: TimeWindow = .twoMin
 
@@ -152,6 +153,12 @@ struct MemoryView: View {
                         }
                     }
                 }
+
+                // ── Top Processes ─────────────────────────────────
+                Divider().background(DS.border)
+
+                ProcessTableView(processes: processMonitor.topProcesses,
+                                 totalMemBytes: latestMem?.totalBytes ?? 0)
             }
         }
     }
@@ -275,5 +282,130 @@ private struct TooltipPopoverContent: View {
             .frame(maxWidth: 280, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .background(Color(red: 0.10, green: 0.10, blue: 0.15))
+    }
+}
+
+// MARK: - Process Table
+
+struct ProcessTableView: View {
+    let processes: [ProcessEntry]
+    let totalMemBytes: UInt64
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Section header
+            HStack {
+                Text("TOP PROCESSES")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(DS.textMuted)
+                    .tracking(1.5)
+                Spacer()
+                Text("Updated every 2s")
+                    .font(.system(size: 9))
+                    .foregroundStyle(DS.textMuted)
+            }
+
+            // Column headers
+            HStack(spacing: 0) {
+                Text("Process")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Memory")
+                    .frame(width: 72, alignment: .trailing)
+                Text("%Mem")
+                    .frame(width: 52, alignment: .trailing)
+                Text("%CPU")
+                    .frame(width: 52, alignment: .trailing)
+            }
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(DS.textMuted)
+            .padding(.horizontal, 8)
+
+            Divider().background(DS.border)
+
+            if processes.isEmpty {
+                Text("Sampling…")
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 1) {
+                    ForEach(Array(processes.enumerated()), id: \.element.id) { rank, proc in
+                        ProcessRow(rank: rank + 1, proc: proc, totalMemBytes: totalMemBytes)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Process Row
+
+struct ProcessRow: View {
+    let rank: Int
+    let proc: ProcessEntry
+    let totalMemBytes: UInt64
+
+    @State private var isHovered = false
+
+    private var memPercent: Double {
+        totalMemBytes > 0 ? Double(proc.memBytes) / Double(totalMemBytes) * 100 : 0
+    }
+
+    // CPU colour: green → amber → red
+    private var cpuColor: Color {
+        switch proc.cpuPercent {
+        case ..<10:  return DS.netInColor
+        case ..<50:  return DS.netOutColor
+        default:     return Color(red: 1.0, green: 0.35, blue: 0.35)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Rank number
+            Text("\(rank)")
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(DS.textMuted)
+                .frame(width: 20, alignment: .trailing)
+                .padding(.trailing, 6)
+
+            // Process name
+            Text(proc.name)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(DS.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Memory bytes
+            Text(formatBytes(Double(proc.memBytes)))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(DS.memColor)
+                .frame(width: 72, alignment: .trailing)
+                .contentTransition(.numericText())
+
+            // Memory %
+            Text(String(format: "%.1f%%", memPercent))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(DS.textSecondary)
+                .frame(width: 52, alignment: .trailing)
+                .contentTransition(.numericText())
+
+            // CPU %
+            Text(String(format: "%.1f%%", proc.cpuPercent))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(cpuColor)
+                .frame(width: 52, alignment: .trailing)
+                .contentTransition(.numericText())
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovered ? DS.surfaceHover : Color.clear)
+        )
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.1), value: isHovered)
     }
 }

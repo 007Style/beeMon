@@ -14,6 +14,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Must NOT be a dispatch_once / static-let path — see InterfaceNamer.swift.
         InterfaceNamer.shared = InterfaceNamer.build()
 
+        // Kick off process sampling before first window opens
+        _ = ProcessMonitor.shared
+
         trayController = TrayController()
     }
 
