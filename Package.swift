@@ -9,6 +9,13 @@ let package = Package(
             name: "beeMon",
             path: "Sources/beeMon",
             exclude: ["Info.plist"]
+        ),
+        .testTarget(
+            name: "beeMonTests",
+            path: "Tests/beeMonTests"
+            // No dependency on the executable target — tests are self-contained.
+            // Pure Swift SPM executables cannot be linked as test dependencies.
+            // All tested logic is re-implemented inline in the test file.
         )
     ]
 )
