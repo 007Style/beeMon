@@ -77,17 +77,25 @@ struct NetworkView: View {
                                 .foregroundStyle(DS.textMuted)
                                 .padding(.top, 4)
                             HStack(spacing: 6) {
-                                ForEach(inactive, id: \.self) { name in
-                                    Text(name)
-                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(DS.textMuted)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 3)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .fill(DS.bg)
-                                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(DS.border, lineWidth: 0.5))
-                                        )
+                                ForEach(inactive, id: \.self) { iface in
+                                    HStack(spacing: 4) {
+                                        Text(iface)
+                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            .foregroundStyle(DS.textMuted)
+                                        Text("—")
+                                            .font(.system(size: 8))
+                                            .foregroundStyle(DS.textMuted.opacity(0.5))
+                                        Text(InterfaceNamer.shared.friendlyName(for: iface))
+                                            .font(.system(size: 9, weight: .regular))
+                                            .foregroundStyle(DS.textMuted.opacity(0.7))
+                                    }
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(DS.bg)
+                                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(DS.border, lineWidth: 0.5))
+                                    )
                                 }
                             }
                         }
@@ -119,19 +127,29 @@ struct InterfaceRow: View {
     }
 
     var body: some View {
+        let friendly = InterfaceNamer.shared.friendlyName(for: name)
+
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                // Interface name badge
-                Text(name)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(DS.textPrimary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(DS.bg)
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(DS.borderBright, lineWidth: 0.5))
-                    )
+                // Interface name + friendly label badge
+                HStack(spacing: 5) {
+                    Text(name)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.textPrimary)
+                    Text("—")
+                        .font(.system(size: 9))
+                        .foregroundStyle(DS.textMuted)
+                    Text(friendly)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(DS.textSecondary)
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(DS.bg)
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(DS.borderBright, lineWidth: 0.5))
+                )
 
                 Spacer()
 
