@@ -50,7 +50,7 @@ struct DashboardView: View {
                 }
             }
         }
-        .frame(width: 720, height: 700)
+        .frame(width: 720, height: 780)
         .preferredColorScheme(.dark)
     }
 

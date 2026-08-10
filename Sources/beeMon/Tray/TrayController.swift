@@ -10,6 +10,7 @@ class TrayController: NSObject {
     private var popover: NSPopover?
     private var updateTimer: Timer?
     private var cancellable: Task<Void, Never>?
+    private var aboutController = AboutWindowController()
 
     // Sparkline state
     private var cpuValues: [Double] = Array(repeating: 0, count: 40)
@@ -131,7 +132,7 @@ class TrayController: NSObject {
 
         if window == nil {
             let win = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 720, height: 700),
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 780),
                 styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -142,7 +143,7 @@ class TrayController: NSObject {
             win.backgroundColor = NSColor(red: 0.07, green: 0.07, blue: 0.10, alpha: 1)
             win.isMovableByWindowBackground = true
             win.contentView = NSHostingView(rootView: DashboardView())
-            win.setContentSize(NSSize(width: 720, height: 700))
+            win.setContentSize(NSSize(width: 720, height: 780))
             win.center()
 
             // Unified title bar (glass look)
@@ -160,6 +161,8 @@ class TrayController: NSObject {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Open beeMon", action: #selector(openDashboard), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "About beeMon…", action: #selector(showAbout), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit beeMon", action: #selector(quit), keyEquivalent: "q"))
         menu.items.forEach { $0.target = self }
         statusItem.menu = menu
@@ -169,6 +172,10 @@ class TrayController: NSObject {
 
     @objc private func openDashboard() {
         toggleDashboard()
+    }
+
+    @objc private func showAbout() {
+        aboutController.show()
     }
 
     @objc private func quit() {
