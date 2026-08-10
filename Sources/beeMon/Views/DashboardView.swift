@@ -37,10 +37,16 @@ struct DashboardView: View {
                 Divider()
                     .background(DS.border)
 
-                // Content
-                ScrollView(.vertical, showsIndicators: false) {
-                    content
+                // Overview is a fixed layout that fills exactly the remaining space.
+                // All other tabs scroll freely.
+                if selectedTab == .overview {
+                    overviewGrid
                         .padding(DS.spacing)
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        content
+                            .padding(DS.spacing)
+                    }
                 }
             }
         }
@@ -178,13 +184,13 @@ struct DashboardView: View {
         .background(DS.surface)
     }
 
-    // MARK: Content
+    // MARK: Content (tabs other than overview)
 
     @ViewBuilder
     private var content: some View {
         switch selectedTab {
         case .overview:
-            overviewGrid
+            EmptyView() // handled separately above
         case .cpu:
             CPUView(monitor: monitor, showWindowPicker: true)
         case .memory:
@@ -194,17 +200,24 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: Overview — fixed layout, fills remaining height, no scroll
+
     private var overviewGrid: some View {
-        VStack(spacing: DS.spacing) {
-            // Top row: CPU + Memory side by side
-            HStack(alignment: .top, spacing: DS.spacing) {
-                CPUView(monitor: monitor)
-                    .frame(maxWidth: .infinity)
-                MemoryView(monitor: monitor)
-                    .frame(maxWidth: .infinity)
+        GeometryReader { geo in
+            VStack(spacing: DS.spacing) {
+                // Top row: CPU + Memory side by side — takes natural height
+                HStack(alignment: .top, spacing: DS.spacing) {
+                    CPUView(monitor: monitor)
+                        .frame(maxWidth: .infinity)
+                    MemoryView(monitor: monitor)
+                        .frame(maxWidth: .infinity)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+
+                // Network fills the remainder — capped at max 2 rows on overview
+                NetworkView(monitor: monitor, activeOnly: true, overviewMaxInterfaces: 2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            // Network full width — overview shows active interfaces only
-            NetworkView(monitor: monitor, activeOnly: true)
         }
     }
 }

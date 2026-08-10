@@ -7,6 +7,8 @@ struct NetworkView: View {
     /// When true only interfaces with recent activity are shown (overview mode).
     var activeOnly: Bool = false
     var showWindowPicker: Bool = false
+    /// On the overview, cap how many interface rows are rendered (nil = no cap).
+    var overviewMaxInterfaces: Int? = nil
     @State private var timeWindow: TimeWindow = .twoMin
 
     private var windowedHistory: [NetworkSample] {
@@ -32,7 +34,13 @@ struct NetworkView: View {
         }
     }
 
-    private var displayedInterfaces: [String] { activeOnly ? activeInterfaces : allInterfaces }
+    private var displayedInterfaces: [String] {
+        let base = activeOnly ? activeInterfaces : allInterfaces
+        if let cap = overviewMaxInterfaces {
+            return Array(base.prefix(cap))
+        }
+        return base
+    }
 
     var body: some View {
         MetricCard(glowColor: DS.netInColor) {
@@ -63,6 +71,22 @@ struct NetworkView: View {
                                 name: iface,
                                 history: windowedHistory
                             )
+                        }
+                    }
+
+                    // Overflow hint when cap is active and there are more interfaces
+                    if let cap = overviewMaxInterfaces {
+                        let hiddenCount = activeInterfaces.count - cap
+                        if hiddenCount > 0 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "ellipsis.circle")
+                                    .font(.system(size: 9))
+                                Text("+\(hiddenCount) more — see Network tab")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(DS.textMuted)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.top, 2)
                         }
                     }
                 }
