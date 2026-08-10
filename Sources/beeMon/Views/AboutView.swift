@@ -111,7 +111,7 @@ struct AboutView: View {
                                 )
                             )
 
-                        Text("VERSION 1.0.1")
+                        Text("VERSION \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2")")
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                             .foregroundStyle(DS.textMuted)
                             .tracking(2)
