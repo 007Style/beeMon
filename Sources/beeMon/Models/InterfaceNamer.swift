@@ -3,15 +3,43 @@ import Foundation
 // MARK: - Interface Namer
 // Queries networksetup once at launch to build a device→friendlyName map.
 // Falls back to a pattern table for anything not listed.
+//
+// NOTE: Do NOT use a static let singleton here — Process() launch inside
+// dispatch_once causes a recursive lock crash on macOS.
+// Instead, `shared` is set explicitly from AppDelegate before any UI renders.
 
 final class InterfaceNamer {
-    static let shared = InterfaceNamer()
+    // Set by AppDelegate.applicationDidFinishLaunching before any view renders.
+    static var shared: InterfaceNamer = InterfaceNamer(map: [:])
 
     /// device name → human-readable port name  e.g. "en0" → "Wi-Fi"
-    private var map: [String: String] = [:]
+    private var map: [String: String]
 
-    private init() {
-        buildMap()
+    /// Designated initialiser — call this off the dispatch_once path.
+    init(map: [String: String]) {
+        self.map = map
+    }
+
+    /// Build the map by running networksetup. Call this once, early, from AppDelegate.
+    static func build() -> InterfaceNamer {
+        var map: [String: String] = [:]
+        let result = shell("networksetup -listallhardwareports")
+        var currentPort: String?
+        for line in result.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("Hardware Port:") {
+                currentPort = trimmed
+                    .replacingOccurrences(of: "Hardware Port:", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+            } else if trimmed.hasPrefix("Device:"), let port = currentPort {
+                let device = trimmed
+                    .replacingOccurrences(of: "Device:", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+                map[device] = cleanPortName(port)
+                currentPort = nil
+            }
+        }
+        return InterfaceNamer(map: map)
     }
 
     // MARK: Public
@@ -29,31 +57,8 @@ final class InterfaceNamer {
 
     // MARK: Private
 
-    private func buildMap() {
-        let result = shell("networksetup -listallhardwareports")
-        // Output blocks look like:
-        //   Hardware Port: Wi-Fi
-        //   Device: en0
-        //   Ethernet Address: ...
-        var currentPort: String?
-        for line in result.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("Hardware Port:") {
-                currentPort = trimmed
-                    .replacingOccurrences(of: "Hardware Port:", with: "")
-                    .trimmingCharacters(in: .whitespaces)
-            } else if trimmed.hasPrefix("Device:"), let port = currentPort {
-                let device = trimmed
-                    .replacingOccurrences(of: "Device:", with: "")
-                    .trimmingCharacters(in: .whitespaces)
-                map[device] = cleanPortName(port)
-                currentPort = nil
-            }
-        }
-    }
-
     /// Strips boilerplate words from port names that networksetup returns.
-    private func cleanPortName(_ raw: String) -> String {
+    private static func cleanPortName(_ raw: String) -> String {
         // "Ethernet Adapter (en4)" → "Ethernet Adapter"
         let noParens = raw.replacingOccurrences(of: #"\s*\(.*?\)"#, with: "", options: .regularExpression)
         return noParens.trimmingCharacters(in: .whitespaces)
@@ -81,7 +86,7 @@ final class InterfaceNamer {
 
     // MARK: Shell helper
 
-    private func shell(_ command: String) -> String {
+    private static func shell(_ command: String) -> String {
         let task = Process()
         task.launchPath = "/bin/zsh"
         task.arguments = ["-c", command]

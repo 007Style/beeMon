@@ -10,6 +10,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Pure menu-bar app — no dock icon, no main window at launch
         NSApp.setActivationPolicy(.accessory)
 
+        // Build interface name map BEFORE any SwiftUI view renders.
+        // Must NOT be a dispatch_once / static-let path — see InterfaceNamer.swift.
+        InterfaceNamer.shared = InterfaceNamer.build()
+
         trayController = TrayController()
     }
 
